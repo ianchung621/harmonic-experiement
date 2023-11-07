@@ -1,0 +1,3 @@
+FC: field cool, ZFC ; CC: current cool, ZCC: zero current cool
+exp3: FC,CC
+exp4: FC,ZCC
