@@ -80,107 +80,96 @@ class DATAS():
         self.fns = glob.glob(f'{folder}/**.csv')
         self.datas = [DATA(fn) for fn in self.fns]
     
-    def plot_temp(self,T_range = (10,200),field = None, FC = None, CC = None, current = None, expID = None, harm = '1st'):
-
+    def select_data(self,temp = None,field = None, FC = None, CC = None, current = None, expID = None, harm = '1st'):
+        fns = []
         datalist = []
-        for data in self.datas:
+        for fn,data in zip(self.fns,self.datas):
+            cond_temp = (data.temp == temp) or (temp == None)
             cond_field = (data.field == field) or (field == None)
             cond_current = (data.current == current) or (current == None)
             cond_FC = (data.FC == FC) or (FC == None)
             cond_CC = (data.CC == CC) or (CC == None)
             cond_ID = (data.expID == expID) or (expID == None)
             cond_harm = (data.harm == harm)
-            if cond_field and cond_current and cond_FC and cond_CC and cond_ID and cond_harm:
+            if cond_temp and cond_field and cond_current and cond_FC and cond_CC and cond_ID and cond_harm:
+                fns.append(fn)
                 datalist.append(data)
-
-
-        theta_Vs = [data.get_V_theta() for data in datalist]
-        temps = [data.temp for data in datalist]
+        self.fns = fns
+        self.datas = datalist
+    
+    def plot_temp(self,T_range = (10,200), xlim = None, ylim = None, title = '', cmap = 'coolwarm'):
+        theta_Vs = [data.get_V_theta() for data in self.datas]
+        temps = [data.temp for data in self.datas]
 
         sorted_data = sorted(zip(theta_Vs, temps), key=lambda x: x[1])
         theta_Vs, temps = zip(*sorted_data)
 
         for theta_V, temp in zip(theta_Vs,temps):
-            plt.scatter(theta_V[0],theta_V[1],c=[temp]*len(theta_V[0]),cmap='coolwarm',vmax=T_range[1],vmin=T_range[0],label = f'{temp} K')
+            plt.scatter(theta_V[0],theta_V[1],c=[temp]*len(theta_V[0]),cmap=cmap,vmax=T_range[1],vmin=T_range[0],label = f'{temp} K')
         plt.xlabel("angle(degree)")
         plt.ylabel("amp(mV)")
-        plt.title("Hall voltage - angle")
+        plt.title("Hall voltage - angle" + title)
         plt.legend(title = 'tempurature')
+        if xlim != None:
+            plt.xlim(xlim)
+        if ylim != None:
+            plt.ylim(ylim)
     
-    def plot_field(self,H_range = (1,5),temp = None, FC = None, CC = None, current = None, expID = None, harm = '1st'):
+    def plot_field(self,H_range = (1,5), xlim = None, ylim = None, title = '', cmap = 'cool'):
 
-        datalist = []
-        for data in self.datas:
-            cond_temp = (data.temp == temp) or (temp == None)
-            cond_current = (data.current == current) or (current == None)
-            cond_FC = (data.FC == FC) or (FC == None)
-            cond_CC = (data.CC == CC) or (CC == None)
-            cond_ID = (data.expID == expID) or (expID == None)
-            cond_harm = (data.harm == harm)
-            if cond_temp and cond_current and cond_FC and cond_CC and cond_ID and cond_harm:
-                datalist.append(data)
-
-        theta_Vs = [data.get_V_theta() for data in datalist]
-        fields = [data.field for data in datalist]
+        theta_Vs = [data.get_V_theta() for data in self.datas]
+        fields = [data.field for data in self.datas]
 
         sorted_data = sorted(zip(theta_Vs, fields), key=lambda x: x[1])
         theta_Vs, fields = zip(*sorted_data)
 
         for theta_V, field in zip(theta_Vs,fields):
-            plt.scatter(theta_V[0],theta_V[1],c=[field]*len(theta_V[0]),cmap='cool',vmax=H_range[1],vmin=H_range[0],label = f'{field} T')
+            plt.scatter(theta_V[0],theta_V[1],c=[field]*len(theta_V[0]),cmap=cmap,vmax=H_range[1],vmin=H_range[0],label = f'{field} T')
         plt.xlabel("angle(degree)")
         plt.ylabel("amp(mV)")
-        plt.title("Hall voltage - angle")
+        plt.title("Hall voltage - angle" + title)
         plt.legend(title = 'field')
+        if xlim != None:
+            plt.xlim(xlim)
+        if ylim != None:
+            plt.ylim(ylim)
+
     
-    def plot_current(self,I_range = (1,15),temp = None, FC = None, CC = None, field = None, expID = None, harm = '1st'):
+    def plot_current(self,I_range = (1,15), xlim = None, ylim = None, title = '', cmap = 'cool'):
 
-        datalist = []
-        for data in self.datas:
-            cond_temp = (data.temp == temp) or (temp == None)
-            cond_field = (data.field == field) or (field == None)
-            cond_FC = (data.FC == FC) or (FC == None)
-            cond_CC = (data.CC == CC) or (CC == None)
-            cond_ID = (data.expID == expID) or (expID == None)
-            cond_harm = (data.harm == harm)
-            if cond_temp and cond_field and cond_FC and cond_CC and cond_ID and cond_harm:
-                datalist.append(data)
-
-        theta_Vs = [data.get_V_theta() for data in datalist]
-        currents = [data.current for data in datalist]
+        theta_Vs = [data.get_V_theta() for data in self.datas]
+        currents = [data.current for data in self.datas]
 
         sorted_data = sorted(zip(theta_Vs, currents), key=lambda x: x[1])
         theta_Vs, currents = zip(*sorted_data)
 
         for theta_V, current in zip(theta_Vs,currents):
-            plt.scatter(theta_V[0],theta_V[1],c=[current]*len(theta_V[0]),cmap='cool',vmax=I_range[1],vmin=I_range[0],label = f'{field} T')
+            plt.scatter(theta_V[0],theta_V[1],c=[current]*len(theta_V[0]),cmap=cmap,vmax=I_range[1],vmin=I_range[0],label = f'{current} mA')
         plt.xlabel("angle(degree)")
         plt.ylabel("amp(mV)")
-        plt.title("Hall voltage - angle")
+        plt.title("Hall voltage - angle" + title)
         plt.legend(title = 'current')
+        if xlim != None:
+            plt.xlim(xlim)
+        if ylim != None:
+            plt.ylim(ylim)
     
-    def plot_cond(self,field = None, temp = None, current = None, expID = None, harm = '1st'):
+    def plot_cond(self, xlim = None, ylim = None, title = ''):
 
-        datalist = []
-        for data in self.datas:
-            cond_field = (data.field == field) or (field == None)
-            cond_current = (data.current == current) or (current == None)
-            cond_temp = (data.temp == temp) or (temp == None)
-            cond_ID = (data.expID == expID) or (expID == None)
-            cond_harm = (data.harm == harm)
-            if cond_field and cond_current and cond_temp and cond_ID and cond_harm:
-                datalist.append(data)
-
-        theta_Vs = [data.get_V_theta() for data in datalist]
-        CCs = [data.CC for data in datalist]
-        FCs = [data.FC for data in datalist]
+        theta_Vs = [data.get_V_theta() for data in self.datas]
+        CCs = [data.CC for data in self.datas]
+        FCs = [data.FC for data in self.datas]
 
         for theta_V, FC, CC in zip(theta_Vs,FCs,CCs):
             plt.scatter(theta_V[0],theta_V[1],label = FC+', '+CC)
         plt.xlabel("angle(degree)")
         plt.ylabel("amp(mV)")
-        plt.title("Hall voltage - angle")
+        plt.title("Hall voltage - angle"+title)
         plt.legend(title = 'condition')
+        if xlim != None:
+            plt.xlim(xlim)
+        if ylim != None:
+            plt.ylim(ylim)
 
     
 class FitData:
@@ -238,6 +227,7 @@ class FitData:
             self.param = [(model.a*std).detach().numpy(), model.b.detach().numpy(), (model.c*std-mean).detach().numpy()]
         elif self.fitting_type == '2nd':
             self.param = [(model.a*std).detach().numpy(), model.b.detach().numpy(), (model.c*std).detach().numpy()]
+
     def predict(self,x,calibrated = False):
         x = torch.tensor(x,dtype=torch.float32)
         y = torch.tensor(self.y,dtype=torch.float32)
@@ -260,6 +250,10 @@ class FitData:
         x_plot = np.linspace(0,360,360)
         plt.plot(x_plot,self.predict(x_plot),'r',label = 'Fit')
         self.data.plot_V_theta(label='Data',title=f' {self.fitting_type}')
+    
+    def plot_fitline(self):
+        x_plot = np.linspace(0,360,360)
+        plt.plot(x_plot,self.predict(x_plot),'r')
 
     def plot_2nd_calibrated(self, thres_ratio = 0.4):
         x_plot = np.linspace(0,360,360)
