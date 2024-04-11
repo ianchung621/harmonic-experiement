@@ -5,38 +5,50 @@ import re
 import glob
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from typing import Tuple
 
 class DATA():
 
     def __init__(self,fn ,expand = 1, mutiplier = 1E6, unit = 'mV'):
         self.unit_str = unit
         if unit == 'mV':
-            self.unit = 1e3
+            toV = 1e3
         elif unit == 'uV':
-            self.unit = 1e6
+            toV = 1e6
         self.df = pd.read_csv(fn,header=None)
         col_names=['theta','amp','amp_err','phase','phase_err']+[f'V{i}' for i in range(len(self.df.columns)-5)]
         self.df.columns = col_names
-        self.df['amp'] = self.df['amp']*self.unit/expand/mutiplier
-        self.df['amp_err'] = self.df['amp_err']*self.unit/expand/mutiplier
+        self.df['amp'] = self.df['amp']*toV/expand/mutiplier
+        self.df['amp_err'] = self.df['amp_err']*toV/expand/mutiplier
         for i in range(len(self.df.columns)-5):
-            self.df[f'V{i}'] = self.df[f'V{i}']*self.unit/expand/mutiplier
+            self.df[f'V{i}'] = self.df[f'V{i}']*toV/expand/mutiplier
         self.voltage_history = self.df[[f'V{i}' for i in range(len(self.df.columns)-5)]]
-        get_current = lambda file: int(re.search(r'(\d+)mA', file).group(1)) if re.search(r'(\d+)mA', file) else None
-        get_field = lambda file: int(re.search(r'(\d+)T', file).group(1)) if re.search(r'(\d+)T', file) else None
-        get_temp = lambda file: int(re.search(r'(\d+)K', file).group(1)) if re.search(r'(\d+)K', file) else None
-        get_expID = lambda file: int(re.search(r'exp(\d+)_', file).group(1)) if re.search(r'exp(\d+)_', file) else None
-        get_FC = lambda file: re.search(r'(_FC_|_ZFC_|_FC|_ZFC)', file).group(1) if re.search(r'(_FC_|_ZFC_|_FC|_ZFC)', file) else None
-        get_CC = lambda file: re.search(r'(_CC_|_ZCC_|_CC|_ZCC)', file).group(1) if re.search(r'(_CC_|_ZCC_|_CC|_ZCC)', file) else None
-        get_harm = lambda file: '2nd' if re.search(r'2nd', file) else '1st'
-        self.current = get_current(fn)
-        self.field = get_field(fn)
-        self.temp = get_temp(fn)
-        self.expID = get_expID(fn)
-        self.harm = get_harm(fn)
-        self.FC = get_FC(fn).replace('_', '') if get_FC(fn) is not None else get_FC(fn)
-        self.CC = get_CC(fn).replace('_', '') if get_CC(fn) is not None else get_CC(fn)
+
+        def search_num(string, keyword):
+            if re.search(rf'(\d+){keyword}', string):
+                return float(re.search(rf'(\d+){keyword}', string).group(1))
+            elif re.search(rf'(\d+).(\d+){keyword}', string):
+                a = re.search(rf'(\d+).(\d+){keyword}', string).group(1)
+                b = re.search(rf'(\d+).(\d+){keyword}', string).group(2)
+                return float(a+'.'+b)
+            else:
+                return None
+        
+        def search_keyword(string, keyword, keyword_substring):
+            if keyword in string:
+                return keyword
+            elif keyword_substring in string:
+                return keyword_substring
+            else:
+                return None
+
+        self.current = search_num(fn, 'mA')
+        self.field = search_num(fn, 'T')
+        self.temp = search_num(fn, 'K')
+        self.expID = int(re.search(r'exp(\d+)_', fn).group(1)) if re.search(r'exp(\d+)_', fn) else None
+        self.harm = '2nd' if re.search(r'2nd', fn) else '1st'
+        self.FC = search_keyword(fn, 'ZFC', 'FC')
+        self.CC = search_keyword(fn, 'ZCC', 'CC')
 
     def plot_V_theta(self, xlim = None, ylim = None, label = None, fmt = 'bo',title = ''):
         plt.errorbar(self.df['theta'],self.df['amp'],self.df['amp_err'],fmt=fmt,label = label)
@@ -97,62 +109,30 @@ class DATAS():
         self.fns = fns
         self.datas = datalist
     
-    def plot_temp(self,T_range = (10,200), xlim = None, ylim = None, title = '', cmap = 'coolwarm'):
-        theta_Vs = [data.get_V_theta() for data in self.datas]
-        temps = [data.temp for data in self.datas]
+    def plot_data(self, attribute, range = None, xlim=None, ylim=None, title='', cmap='coolwarm', label=''):
+        if attribute not in ['temp', 'field', 'current']:
+            raise ValueError("Invalid attribute. Choose from 'temp', 'field', or 'current'.")
+        
+        data_values = [getattr(data, attribute) for data in self.datas]
+        sorted_data = sorted(zip(data_values, self.datas), key=lambda x: x[0])
+        sorted_values, sorted_datas = zip(*sorted_data)
 
-        sorted_data = sorted(zip(theta_Vs, temps), key=lambda x: x[1])
-        theta_Vs, temps = zip(*sorted_data)
-
-        for theta_V, temp in zip(theta_Vs,temps):
-            plt.scatter(theta_V[0],theta_V[1],c=[temp]*len(theta_V[0]),cmap=cmap,vmax=T_range[1],vmin=T_range[0],label = f'{temp} K')
+        for value, data_obj in zip(sorted_values, sorted_datas):
+            plt.scatter(data_obj.get_V_theta()[0], data_obj.get_V_theta()[1],
+                        c=[value]*len(data_obj.get_V_theta()[0]),
+                        cmap=cmap, vmax=range[1], vmin=range[0],
+                        label=f'{value} {label}')
+        
         plt.xlabel("angle(degree)")
         plt.ylabel("amp(mV)")
         plt.title("Hall voltage - angle" + title)
-        plt.legend(title = 'tempurature')
-        if xlim != None:
+        plt.legend(title=attribute)
+        
+        if xlim is not None:
             plt.xlim(xlim)
-        if ylim != None:
+        if ylim is not None:
             plt.ylim(ylim)
     
-    def plot_field(self,H_range = (1,5), xlim = None, ylim = None, title = '', cmap = 'cool'):
-
-        theta_Vs = [data.get_V_theta() for data in self.datas]
-        fields = [data.field for data in self.datas]
-
-        sorted_data = sorted(zip(theta_Vs, fields), key=lambda x: x[1])
-        theta_Vs, fields = zip(*sorted_data)
-
-        for theta_V, field in zip(theta_Vs,fields):
-            plt.scatter(theta_V[0],theta_V[1],c=[field]*len(theta_V[0]),cmap=cmap,vmax=H_range[1],vmin=H_range[0],label = f'{field} T')
-        plt.xlabel("angle(degree)")
-        plt.ylabel("amp(mV)")
-        plt.title("Hall voltage - angle" + title)
-        plt.legend(title = 'field')
-        if xlim != None:
-            plt.xlim(xlim)
-        if ylim != None:
-            plt.ylim(ylim)
-
-    
-    def plot_current(self,I_range = (1,15), xlim = None, ylim = None, title = '', cmap = 'cool'):
-
-        theta_Vs = [data.get_V_theta() for data in self.datas]
-        currents = [data.current for data in self.datas]
-
-        sorted_data = sorted(zip(theta_Vs, currents), key=lambda x: x[1])
-        theta_Vs, currents = zip(*sorted_data)
-
-        for theta_V, current in zip(theta_Vs,currents):
-            plt.scatter(theta_V[0],theta_V[1],c=[current]*len(theta_V[0]),cmap=cmap,vmax=I_range[1],vmin=I_range[0],label = f'{current} mA')
-        plt.xlabel("angle(degree)")
-        plt.ylabel("amp(mV)")
-        plt.title("Hall voltage - angle" + title)
-        plt.legend(title = 'current')
-        if xlim != None:
-            plt.xlim(xlim)
-        if ylim != None:
-            plt.ylim(ylim)
     
     def plot_cond(self, xlim = None, ylim = None, title = ''):
 
@@ -171,7 +151,6 @@ class DATAS():
         if ylim != None:
             plt.ylim(ylim)
 
-    
 class FitData:
 
     def __init__(self, data:DATA):
@@ -396,6 +375,3 @@ if __name__ == '__main__':
     print(f'Field like SOT effective field per current density: {H_FL/current_density:.4f} T/(10¹²A/m²)')
     plt.tight_layout()
     plt.savefig('harmfit.png')
-
-
-    
