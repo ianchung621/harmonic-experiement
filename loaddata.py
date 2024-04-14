@@ -6,7 +6,6 @@ import glob
 import torch
 import torch.nn as nn
 torch.manual_seed(69)
-from typing import Tuple
 
 class DATA():
 
@@ -15,8 +14,8 @@ class DATA():
         self.current = search_num(fn, 'mA')
         self.field = search_num(fn, 'T')
         self.temp = search_num(fn, 'K')
-        self.expID = int(re.search(r'exp(\d+)_', fn).group(1)) if re.search(r'exp(\d+)_', fn) else None
-        self.harm = '2nd' if re.search(r'2nd', fn) else '1st'
+        self.expID = int(re.search(rf'exp(\d+)_', fn).group(1)) if re.search(rf'exp(\d+)_', fn) else None
+        self.harm = '2nd' if re.search(rf'2nd', fn) else '1st'
         self.FC = search_keyword(fn, 'ZFC', 'FC')
         self.CC = search_keyword(fn, 'ZCC', 'CC')
         self.unit_str = unit
@@ -401,7 +400,7 @@ if __name__ == '__main__':
     # fit curve
     function_2nd = FitData(data_2nd)
     function_2nd.model.b = float(function_1st.param[1])
-    function_2nd.model.c = 0
+
     function_2nd.optimize(lr = 0.001, max_iter=100000,eval_iter=1000,threshold = None, verbose=True)
     print(function_2nd)
     #plotting
